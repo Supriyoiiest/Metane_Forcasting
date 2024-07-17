@@ -1,40 +1,54 @@
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import Ridge
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-import matplotlib.pyplot as plt
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import PolynomialFeatures
 from lib.preprocessing import CleanDataReturn
-data = pd.read_csv('D:/merged_data_1.csv')
-data['Time'] = pd.to_datetime(data['Time'], format='%d-%m-%Y %H:%M')
-data_cleaned= CleanDataReturn(data)
-X = data_cleaned[['Coal', 'RH (%)', 'Temp (deg C)']]
-y = data_cleaned['CH4 (ppm)']
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-degree = 50
-poly = PolynomialFeatures(degree)
-X_train_poly = poly.fit_transform(X_train)
-X_test_poly = poly.transform(X_test)
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import Ridge
 
-ridge = Ridge()
-ridge.fit(X_train_poly, y_train)
-y_pred = ridge.predict(X_test_poly)
-
-mse = mean_squared_error(y_test, y_pred)
-intercept = ridge.intercept_
-coefficients = ridge.coef_
-feature_names = poly.get_feature_names_out(X.columns)
-
-equation_terms = [f"{coeff}*{name}" for coeff, name in zip(coefficients, feature_names)]
-equation = " + ".join(equation_terms)
-
-def evaluate_ch4(coal, rh, temp):
+def evaluate_ch4(coal, rh, temp, model, poly):
     input_data = np.array([[coal, rh, temp]])
     input_poly = poly.transform(input_data)
-    ch4 = intercept + np.sum(coefficients * input_poly)
-    return ch4
+    ch4_pred = model.predict(input_poly)
+    return ch4_pred[0]
+
+def train_and_evaluate_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    model = RandomForestRegressor(random_state=42)
+
+    # Define hyperparameters grid for tuning
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [None, 10, 20],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+        'max_features': ['auto', 'sqrt', 'log2']
+    }
+
+    grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
+    grid_search.fit(X_train_scaled, y_train)
+
+    best_model = grid_search.best_estimator_
+
+    y_pred = best_model.predict(X_test_scaled)
+
+
+    mse = mean_squared_error(y_test, y_pred)
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    print(f"Best parameters: {grid_search.best_params_}")
+    print(f"Mean squared error: {mse}")
+    print(f"Mean absolute error: {mae}")
+    print(f"R-squared: {r2}")
+
+    return best_model, scaler
+
