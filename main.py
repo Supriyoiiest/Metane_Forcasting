@@ -1,5 +1,3 @@
-import sys
-sys.path.append('f:\Metane_Forcasting-main\lib')
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
@@ -7,24 +5,26 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 import numpy as np
-from preprocessing import CleanDataReturn
-from ml_pred import train_and_evaluate_model
-from ca_use import usedCA
-from ml_pred import evaluate_ch4
-
+from lib.preprocessing import CleanDataReturn
+from lib.ml_pred import train_and_evaluate_model
+from lib.ca_use import usedCA
+from lib.ml_pred import evaluate_ch4
+from scipy.interpolate import make_interp_spline
 # Add the path to lib directory
 
 
 def main():
     # Load and preprocess data
-    data = pd.read_csv('F:/Metane_Forcasting-main/data/merged_data_1.csv')
+    data = pd.read_csv('C:/Users/supri/OneDrive/Desktop/Metane_Forcasting-main/data/merged_data_1.csv')
 
     data['Time'] = pd.to_datetime(data['Time'], format='%d-%m-%Y %H:%M')
     data_cleaned = CleanDataReturn(data)
-
+    data_cleaned['Time'] = data['Time'][data_cleaned.index]
+    data_cleaned = data_cleaned.sort_values(by='Time')
     # Select features and target
     X = data_cleaned[['Coal', 'RH (%)', 'Temp (deg C)']]
     y = data_cleaned['CH4 (ppm)']
+
 
     # Train and evaluate the model (Example with RandomForestRegressor)
     model = RandomForestRegressor(random_state=42)
@@ -44,10 +44,9 @@ def main():
     predicted_ch4_array_alt = best_model.predict(X)  # Example prediction using trained model
     forecast = usedCA(predicted_ch4_array_alt)
     data = data.iloc[:-1]
-
     # Plotting
-    plt.figure(figsize=(12, 6))
-    plt.plot(data['Time'], data_cleaned['CH4 (ppm)'], color='blue', label='Actual CH4 (ppm)')
+    plt.figure(figsize=(120, 60))
+    plt.plot(data_cleaned['Time'],data_cleaned['CH4 (ppm)'], color='blue', label='Actual CH4 (ppm)')
     plt.plot(data['Time'], forecast, color='green', linestyle='dashed', label='Predicted CH4 (ppm)')
     plt.xlabel('Time')
     plt.ylabel('CH4 (ppm)')
@@ -57,4 +56,5 @@ def main():
     plt.show()
 if __name__ == "__main__":
     main()
+
 
