@@ -7,10 +7,10 @@ def quantize(org_value, num_states, min_value, max_value):
 def dequantize(state, num_states, min_value, max_value):
     return min_value + (state - 1) * (max_value - min_value) / (num_states - 1)
 
-def fuzzy_membership(value, states):
+def fuzzy_membership(value, states, sigma=1.0):
     membership_values = []
     for state in states:
-        membership_value = np.exp(-((value - state)**2) / (2 * (state / 10)**2))
+        membership_value = np.exp(-((value - state) ** 2) / (2 * sigma ** 2))
         membership_values.append(membership_value)
     return membership_values
 
@@ -21,20 +21,30 @@ def fuzzy_aggregate(memberships):
     return sum(m * s for m, s in zip(memberships, range(1, len(memberships) + 1))) / total_weight
 
 def next_state(current_state, num_states, grid, i):
-    neighborhood = 5
+    neighborhood_radius = 3
+    extended_radius = 6
     num_cells = len(grid)
     neighborhood_values = []
-    for offset in range(-neighborhood, neighborhood + 1):
+    
+    # Immediate neighborhood
+    for offset in range(-neighborhood_radius, neighborhood_radius + 1):
         index = (i + offset) % num_cells 
-        index = (index + num_cells) % num_cells 
+        neighborhood_values.append(grid[index])
+    
+    # Extended neighborhood
+    for offset in range(-extended_radius, extended_radius + 1, 2):
+        index = (i + offset) % num_cells 
         neighborhood_values.append(grid[index])
     
     states = np.linspace(np.min(grid), np.max(grid), num_states)
     fuzzy_memberships = np.zeros(num_states)
     
-    for value in neighborhood_values:
+    # Weights for immediate and extended neighborhoods
+    weights = np.array([1] * (2 * neighborhood_radius + 1) + [0.5] * ((2 * extended_radius // 2) + 1))
+    
+    for idx, value in enumerate(neighborhood_values):
         memberships = fuzzy_membership(value, states)
-        fuzzy_memberships += np.array(memberships)
+        fuzzy_memberships += np.array(memberships) * weights[idx]
     
     next_state_index = int(fuzzy_aggregate(fuzzy_memberships))
     next_state_index = min(max(next_state_index, 1), num_states)
@@ -57,7 +67,7 @@ def usedCA(methane_data, steps=10):
     for t in range(1, steps):
         new_grid = np.zeros(num_cells, dtype=int)
         for i in range(num_cells):
-            new_grid[i] = next_state(forecast[t-1], num_states, grid, i)
+            new_grid[i] = next_state(forecast[t-1], num_states, forecast[t-1], i)
         forecast[t] = new_grid
     
     final_forecast = np.array([dequantize(state, num_states, min_value, max_value) for state in forecast[-1]])
