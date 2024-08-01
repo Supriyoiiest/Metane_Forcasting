@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.neural_network import MLPRegressor
 
 def quantize(org_value, num_states, min_value, max_value):
     precise_value = (org_value - min_value) / (max_value - min_value) * (num_states - 1)
@@ -20,36 +21,28 @@ def fuzzy_aggregate(memberships):
         return 0
     return sum(m * s for m, s in zip(memberships, range(1, len(memberships) + 1))) / total_weight
 
-def next_state(current_state, num_states, grid, i):
-    neighborhood_radius = 3
-    extended_radius = 6
-    num_cells = len(grid)
-    neighborhood_values = []
+def train_ml_model(data, num_states, min_value, max_value):
+    X, y = [], []
+    num_cells = len(data)
     
-    # Immediate neighborhood
-    for offset in range(-neighborhood_radius, neighborhood_radius + 1):
-        index = (i + offset) % num_cells 
-        neighborhood_values.append(grid[index])
+    for i in range(3, num_cells - 3):
+        neighborhood = data[i-3:i+4]
+        target = data[i]
+        X.append(neighborhood)
+        y.append(target)
     
-    # Extended neighborhood
-    for offset in range(-extended_radius, extended_radius + 1, 2):
-        index = (i + offset) % num_cells 
-        neighborhood_values.append(grid[index])
+    X = np.array(X)
+    y = np.array(y)
     
-    states = np.linspace(np.min(grid), np.max(grid), num_states)
-    fuzzy_memberships = np.zeros(num_states)
+    model = MLPRegressor(hidden_layer_sizes=(500, 500), max_iter=1000)
+    model.fit(X, y)
     
-    # Weights for immediate and extended neighborhoods
-    weights = np.array([1] * (2 * neighborhood_radius + 1) + [0.5] * ((2 * extended_radius // 2) + 1))
-    
-    for idx, value in enumerate(neighborhood_values):
-        memberships = fuzzy_membership(value, states)
-        fuzzy_memberships += np.array(memberships) * weights[idx]
-    
-    next_state_index = int(fuzzy_aggregate(fuzzy_memberships))
-    next_state_index = min(max(next_state_index, 1), num_states)
-    
-    return next_state_index
+    return model
+
+def next_state_ml(model, grid, i):
+    neighborhood = grid[i-3:i+4]
+    next_state = model.predict([neighborhood])[0]
+    return next_state
 
 def usedCA(methane_data, steps=10):
     num_cells = len(methane_data)
@@ -60,15 +53,18 @@ def usedCA(methane_data, steps=10):
     
     for i in range(num_cells):
         grid[i] = quantize(methane_data[i], num_states, min_value, max_value)
+    
+    model = train_ml_model(methane_data, num_states, min_value, max_value)
 
-    forecast = np.zeros((steps, num_cells), dtype=int)
-    forecast[0] = grid.astype(int)
+    forecast = np.zeros((steps, num_cells), dtype=float)
+    forecast[0] = grid.astype(float)
     
     for t in range(1, steps):
-        new_grid = np.zeros(num_cells, dtype=int)
-        for i in range(num_cells):
-            new_grid[i] = next_state(forecast[t-1], num_states, forecast[t-1], i)
+        new_grid = np.zeros(num_cells, dtype=float)
+        for i in range(3, num_cells - 3):
+            new_grid[i] = next_state_ml(model, forecast[t-1], i)
         forecast[t] = new_grid
     
     final_forecast = np.array([dequantize(state, num_states, min_value, max_value) for state in forecast[-1]])
     return final_forecast
+
