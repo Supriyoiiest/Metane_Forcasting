@@ -28,7 +28,7 @@ def main():
 
     # Train and evaluate the model (Example with RandomForestRegressor)
     model = RandomForestRegressor(random_state=42)
-    param_grid = {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20]}
+    param_grid = {'n_estimators': [50, 100, 200], 'max_depth': [None, 100, 200]}
     grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
     grid_search.fit(X, y)
     best_model = grid_search.best_estimator_
@@ -47,7 +47,7 @@ def main():
     # Plotting
     plt.figure(figsize=(120, 60))
     plt.plot(data_cleaned['Time'],data_cleaned['CH4 (ppm)'], color='blue', label='Actual CH4 (ppm)')
-    plt.plot(data['Time'], forecast, color='green', linestyle='dashed', label='Predicted CH4 (ppm)')
+    plt.plot(data_cleaned['Time'], forecast, color='green', linestyle='dashed', label='Predicted CH4 (ppm)')
     plt.xlabel('Time')
     plt.ylabel('CH4 (ppm)')
     plt.title('Actual vs Predicted CH4 (ppm) over Time')
@@ -56,5 +56,4 @@ def main():
     plt.show()
 if __name__ == "__main__":
     main()
-
 
