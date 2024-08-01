@@ -2,5 +2,5 @@
 Experimental code for further review and discussion on the topic.
 1. Introduced ml model in the rule with 500*500 hidden layer
    Results:
-  ![Uploading Figure_1.png…]()
+  ![./results/Figure_1.png]()
 
