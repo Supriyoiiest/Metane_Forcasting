@@ -26,9 +26,11 @@ def train_ml_model(data, num_states, min_value, max_value):
     num_cells = len(data)
     
     for i in range(3, num_cells - 3):
-        neighborhood = data[i-3:i+4]
+        neighborhood = data[i-1:i+2]  # Immediate neighborhood
+        extended_neighborhood = data[i-3:i+4]  # Extended neighborhood (3 cells on each side)
+        features = np.concatenate((neighborhood, extended_neighborhood))
         target = data[i]
-        X.append(neighborhood)
+        X.append(features)
         y.append(target)
     
     X = np.array(X)
@@ -40,8 +42,12 @@ def train_ml_model(data, num_states, min_value, max_value):
     return model
 
 def next_state_ml(model, grid, i):
-    neighborhood = grid[i-3:i+4]
-    next_state = model.predict([neighborhood])[0]
+    neighborhood = grid[i-1:i+2]  # Immediate neighborhood
+    extended_neighborhood = grid[i-3:i+4]  # Extended neighborhood (3 cells on each side)
+    features = np.concatenate((neighborhood, extended_neighborhood))
+    nn_prediction = model.predict([features])[0]
+    avg_neighbors = np.mean(neighborhood)
+    next_state = (nn_prediction + avg_neighbors) / 2
     return next_state
 
 def usedCA(methane_data, steps=10):
@@ -67,4 +73,3 @@ def usedCA(methane_data, steps=10):
     
     final_forecast = np.array([dequantize(state, num_states, min_value, max_value) for state in forecast[-1]])
     return final_forecast
-
